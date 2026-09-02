@@ -4,9 +4,17 @@
  */
 
 // Google Analytics Events
+//
+// Pushed directly to dataLayer in GTM's native {event, ...params} shape
+// rather than via window.gtag(...) -- the base gtag() stub in index.html
+// (needed there so Consent Mode defaults are set before GTM loads) pushes
+// arguments-object-shaped entries that GTM's Custom Event triggers do not
+// reliably match, which silently dropped every custom event (verified via
+// direct network inspection: identical events pushed in this native shape
+// fire correctly every time, gtag()-routed ones never do).
 export const trackGA4Event = (eventName, params = {}) => {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', eventName, params);
+  if (typeof window !== 'undefined' && window.dataLayer) {
+    window.dataLayer.push({ event: eventName, ...params });
   }
 };
 
