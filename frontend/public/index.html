@@ -157,16 +157,35 @@
         }
         </script>
         
-        <!-- Google Analytics (GA4) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-YFJ0E82MK6"></script>
+        <!-- Consent Mode v2 defaults — must run before GTM/gtag loads. Every
+             tag configured inside GTM (GA4, Google Ads conversion, etc.)
+             reads this and won't fire ad/analytics storage until a visitor
+             accepts the cookie banner (frontend/src/components/layout/ConsentBanner.jsx). -->
         <script>
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-YFJ0E82MK6');
+          gtag('consent', 'default', {
+            ad_storage: 'denied',
+            analytics_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied',
+            wait_for_update: 500
+          });
         </script>
-        
-        <!-- Meta Pixel Code -->
+
+        <!-- Google Tag Manager — configure GA4 / Google Ads conversion tags
+             inside the GTM container itself; no further code deploys needed
+             for tag changes once GTM_ID is set. -->
+        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','%REACT_APP_GTM_ID%');</script>
+
+        <!-- Meta Pixel Code — consent-gated: initialized immediately but
+             held in a revoked state (no network requests fire) until the
+             visitor accepts the cookie banner, or immediately re-granted if
+             they already accepted on a previous visit (localStorage). -->
         <script>
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -176,12 +195,15 @@
           t.src=v;s=b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '965442971770619');
-          fbq('track', 'PageView');
+          fbq('consent', 'revoke');
+          fbq('init', '%REACT_APP_META_PIXEL_ID%');
+          try {
+            if (window.localStorage.getItem('decorous_consent') === 'granted') {
+              fbq('consent', 'grant');
+              fbq('track', 'PageView');
+            }
+          } catch (e) {}
         </script>
-        <noscript><img height="1" width="1" style="display:none"
-          src="https://www.facebook.com/tr?id=965442971770619&ev=PageView&noscript=1"
-        /></noscript>
         <!-- End Meta Pixel Code -->
         
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
@@ -340,14 +362,25 @@
                     }),
                     (e.__SV = 1));
             })(document, window.posthog || []);
-            posthog.init("phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs", {
-                api_host: "https://us.i.posthog.com",
-                person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well,
-                session_recording: {
-                    recordCrossOriginIframes: true,
-                    capturePerformance: false,
-                },
-            });
+            // Consent-gated: session recording collects clicks/input, so it
+            // only starts once the cookie banner is accepted (immediately
+            // below if already granted on a previous visit, or later via
+            // frontend/src/utils/consent.js when the visitor accepts).
+            window.__decorousInitPostHog = function () {
+                posthog.init("phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs", {
+                    api_host: "https://us.i.posthog.com",
+                    person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well,
+                    session_recording: {
+                        recordCrossOriginIframes: true,
+                        capturePerformance: false,
+                    },
+                });
+            };
+            try {
+                if (window.localStorage.getItem('decorous_consent') === 'granted') {
+                    window.__decorousInitPostHog();
+                }
+            } catch (e) {}
         </script>
     </body>
 </html>

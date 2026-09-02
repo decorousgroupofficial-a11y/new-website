@@ -136,6 +136,7 @@ async function getDynamicRoutes() {
         path: `/services/${s.slug}`,
         title: `${s.name} in Bhubaneswar, Odisha | Decorous`,
         description: s.short_description,
+        image: s.image,
       });
     }
   } catch (err) {
@@ -149,6 +150,7 @@ async function getDynamicRoutes() {
         path: `/cities/${c.slug}`,
         title: `${c.service_type} in ${c.name}, Odisha | Decorous`,
         description: `Decorous offers trusted ${c.service_type.toLowerCase()} services in ${c.name}, Odisha. Engineer-led teams, transparent BOQ, on-time delivery. Call +91 7008863329 for a free quote.`,
+        image: c.image,
       });
     }
   } catch (err) {
@@ -164,6 +166,7 @@ async function getDynamicRoutes() {
         path: `/blog/${p.slug}`,
         title: `${p.title} | Decorous Blog`,
         description: p.excerpt,
+        image: p.image,
       });
     }
   } catch (err) {
@@ -186,7 +189,7 @@ function renderForRoute(template, route) {
   const title = escapeHtml(route.title);
   const description = escapeHtml(route.description || "");
 
-  return template
+  let html = template
     .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
     .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${description}" />`)
     .replace(/<link rel="canonical" href="[^"]*"\s*\/?>/, `<link rel="canonical" href="${url}" />`)
@@ -196,6 +199,19 @@ function renderForRoute(template, route) {
     .replace(/<meta property="twitter:url" content="[^"]*"\s*\/?>/, `<meta property="twitter:url" content="${url}" />`)
     .replace(/<meta property="twitter:title" content="[^"]*"\s*\/?>/, `<meta property="twitter:title" content="${title}" />`)
     .replace(/<meta property="twitter:description" content="[^"]*"\s*\/?>/, `<meta property="twitter:description" content="${description}" />`);
+
+  // Only override the image if this route has its own (services/cities/blog
+  // posts do; static routes fall back to the default og-image.jpg already
+  // in the template) — otherwise non-JS scrapers (Meta's link-preview bot,
+  // WhatsApp) would see a blank/broken image tag instead of the default.
+  if (route.image) {
+    const image = escapeHtml(route.image);
+    html = html
+      .replace(/<meta property="og:image" content="[^"]*"\s*\/?>/, `<meta property="og:image" content="${image}" />`)
+      .replace(/<meta property="twitter:image" content="[^"]*"\s*\/?>/, `<meta property="twitter:image" content="${image}" />`);
+  }
+
+  return html;
 }
 
 async function main() {

@@ -44,8 +44,9 @@ const PrivacyPolicyPage = () => {
           </ul>
           <h3>1.2 Information we collect automatically</h3>
           <ul>
-            <li>Device type, browser, IP address, referring URL and pages visited (via Google Analytics 4).</li>
+            <li>Device type, browser, IP address, referring URL and pages visited (via Google Analytics 4 and Google Ads, managed through Google Tag Manager).</li>
             <li>Cookies and pixel data for advertising attribution (Meta Pixel).</li>
+            <li>Anonymized on-site interaction data such as clicks and page navigation, used to understand and improve site usability (via PostHog).</li>
           </ul>
 
           <h2>2. How we use your information</h2>
@@ -84,9 +85,13 @@ const PrivacyPolicyPage = () => {
 
           <h2>6. Cookies</h2>
           <p>
-            We use cookies and similar technologies for analytics and ad
-            attribution. You can disable cookies in your browser settings;
-            doing so may impact site functionality.
+            When you first visit decorous.in, a banner asks whether you consent to
+            non-essential cookies used for analytics and ad attribution (Google
+            Analytics, Google Ads, Meta Pixel, PostHog). These do not load until you
+            accept. You can change your choice at any time by clearing your
+            browser's site data for decorous.in, which will show the banner again.
+            You can also disable cookies entirely in your browser settings; doing
+            so may impact site functionality.
           </p>
 
           <h2>7. Your rights</h2>

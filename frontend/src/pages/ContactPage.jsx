@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import Seo from '@/components/Seo';
 import axios from 'axios';
+import { trackLeadSubmission, trackMetaEvent } from '@/utils/analytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -55,7 +56,17 @@ const ContactPage = () => {
         ...formData,
         source: 'contact_page'
       });
-      
+
+      // Meta's own taxonomy treats a quote-request submission as both a
+      // Contact (the visitor reached out) and a Lead (a qualified prospect
+      // captured) — firing both gives Ads more signal to optimize against.
+      trackMetaEvent('Contact', { content_name: 'Contact Form' });
+      trackLeadSubmission({
+        source: 'contact_page',
+        city: formData.city,
+        construction_type: formData.construction_type,
+      });
+
       toast.success('Thank you! We will contact you within 24 hours.');
       setFormData({
         name: '',

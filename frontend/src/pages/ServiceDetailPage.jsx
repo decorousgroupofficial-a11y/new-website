@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import LeadForm from '@/components/forms/LeadForm';
 import Seo from '@/components/Seo';
 import axios from 'axios';
+import { trackServicePageView } from '@/utils/analytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -28,6 +29,12 @@ const ServiceDetailPage = () => {
   useEffect(() => {
     fetchService();
   }, [fetchService]);
+
+  useEffect(() => {
+    if (service) {
+      trackServicePageView(service.name);
+    }
+  }, [service]);
 
   if (loading) {
     return (

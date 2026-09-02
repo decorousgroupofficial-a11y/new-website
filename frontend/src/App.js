@@ -1,14 +1,16 @@
 import "@/App.css";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/sonner";
+import { reapplyStoredConsent } from "@/utils/consent";
 
 // Layout Components
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import FloatingButtons from "@/components/layout/FloatingButtons";
 import MobileBottomBar from "@/components/layout/MobileBottomBar";
+import ConsentBanner from "@/components/layout/ConsentBanner";
 
 // Page Components — every route is lazy-loaded so a visit to any one page
 // only downloads that page's JS, not the other 20+ pages' code too.
@@ -62,11 +64,16 @@ const Layout = ({ children }) => {
       <Footer />
       <FloatingButtons />
       <MobileBottomBar />
+      <ConsentBanner />
     </>
   );
 };
 
 function App() {
+  useEffect(() => {
+    reapplyStoredConsent();
+  }, []);
+
   return (
     <div className="App">
       <HelmetProvider>
