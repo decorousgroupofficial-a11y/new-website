@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import LeadForm from '@/components/forms/LeadForm';
 import Seo from '@/components/Seo';
 import axios from 'axios';
+import { trackPhoneClick, trackWhatsAppClick } from '@/utils/analytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -109,6 +110,7 @@ const HomePage = () => {
             <div className="flex gap-4 mt-8">
               <a
                 href="tel:7008863329"
+                onClick={trackPhoneClick}
                 className="flex items-center gap-2 text-white/80 hover:text-[#F5A623] transition-colors"
                 data-testid="hero-call-link"
               >
@@ -119,6 +121,7 @@ const HomePage = () => {
                 href={`https://wa.me/${whatsappNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={trackWhatsAppClick}
                 className="flex items-center gap-2 text-white/80 hover:text-[#25D366] transition-colors"
                 data-testid="hero-whatsapp-link"
               >
@@ -402,7 +405,7 @@ const HomePage = () => {
             pick whichever way works best for you.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <a href="tel:7008863329" className="group bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl p-6 transition-colors" data-testid="cta-callback">
+            <a href="tel:7008863329" onClick={trackPhoneClick} className="group bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl p-6 transition-colors" data-testid="cta-callback">
               <Phone size={28} className="text-[#F5A623] mx-auto mb-3" />
               <p className="text-white font-semibold">Request a Callback</p>
               <p className="text-white/70 text-sm mt-1">+91 7008863329</p>
@@ -411,6 +414,7 @@ const HomePage = () => {
               href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={trackWhatsAppClick}
               className="group bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl p-6 transition-colors"
               data-testid="cta-whatsapp"
             >

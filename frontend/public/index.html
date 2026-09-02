@@ -8,6 +8,11 @@
         <meta name="keywords" content="construction company bhubaneswar, house construction odisha, home builders bhubaneswar, interior designers bhubaneswar, warehouse construction odisha, peb construction" />
         <meta name="author" content="Decorous" />
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+        <!-- Meta Business domain verification -- paste the content value Meta
+             Business Manager gives you (Brand Safety > Domains) into the
+             REACT_APP_META_DOMAIN_VERIFICATION env var; harmless empty tag
+             until then. -->
+        <meta name="facebook-domain-verification" content="%REACT_APP_META_DOMAIN_VERIFICATION%" />
         <meta name="geo.region" content="IN-OR" />
         <meta name="geo.placename" content="Bhubaneswar" />
         <meta name="geo.position" content="20.2961;85.8245" />
@@ -197,6 +202,10 @@
           'https://connect.facebook.net/en_US/fbevents.js');
           fbq('consent', 'revoke');
           fbq('init', '%REACT_APP_META_PIXEL_ID%');
+          // Exposed so frontend/src/utils/metaAdvancedMatching.js can re-init
+          // the pixel with hashed customer data once a form collects it,
+          // without hardcoding the id a second time anywhere in React code.
+          window.__DECOROUS_META_PIXEL_ID = '%REACT_APP_META_PIXEL_ID%';
           try {
             if (window.localStorage.getItem('decorous_consent') === 'granted') {
               fbq('consent', 'grant');

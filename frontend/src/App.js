@@ -11,6 +11,7 @@ import Footer from "@/components/layout/Footer";
 import FloatingButtons from "@/components/layout/FloatingButtons";
 import MobileBottomBar from "@/components/layout/MobileBottomBar";
 import ConsentBanner from "@/components/layout/ConsentBanner";
+import MetaPixelRouteTracker from "@/components/layout/MetaPixelRouteTracker";
 
 // Page Components — every route is lazy-loaded so a visit to any one page
 // only downloads that page's JS, not the other 20+ pages' code too.
@@ -59,6 +60,7 @@ const Layout = ({ children }) => {
   
   return (
     <>
+      <MetaPixelRouteTracker />
       <Header />
       <main className="min-h-screen">{children}</main>
       <Footer />

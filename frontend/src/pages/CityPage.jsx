@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import LeadForm from '@/components/forms/LeadForm';
 import Seo from '@/components/Seo';
 import axios from 'axios';
+import { trackPhoneClick } from '@/utils/analytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -104,7 +105,7 @@ const CityPage = () => {
                   <ArrowRight className="ml-2" size={16} />
                 </Button>
               </Link>
-              <a href="tel:7008863329">
+              <a href="tel:7008863329" onClick={trackPhoneClick}>
                 <Button variant="outline" className="border-white text-white hover:bg-white hover:text-[#1a365d] h-12 px-8" data-testid="city-call">
                   <Phone className="mr-2" size={16} />
                   Call: 7008863329
@@ -192,7 +193,7 @@ const CityPage = () => {
                 <div className="p-6 bg-[#1a365d] rounded-xl text-white">
                   <h4 className="font-bold mb-4">Contact Us</h4>
                   <div className="space-y-3 text-white/80">
-                    <a href="tel:7008863329" className="flex items-center gap-2 hover:text-[#F5A623]">
+                    <a href="tel:7008863329" onClick={trackPhoneClick} className="flex items-center gap-2 hover:text-[#F5A623]">
                       <Phone size={16} />
                       7008863329
                     </a>

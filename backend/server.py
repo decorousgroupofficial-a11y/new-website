@@ -1,9 +1,10 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, Response, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import base64
+import hashlib
 import io
 import os
 import logging
@@ -15,6 +16,7 @@ import uuid
 from datetime import datetime, timezone
 import asyncio
 import secrets
+import httpx
 import resend
 from erp_routes import router as erp_router
 
@@ -30,6 +32,13 @@ db = client[os.environ['DB_NAME']]
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
 NOTIFICATION_EMAIL = os.environ.get('NOTIFICATION_EMAIL', 'contact@decorous.in')
 WHATSAPP_NUMBER = os.environ.get('WHATSAPP_NUMBER', '917008863329')
+
+# Meta Conversions API — same public Pixel ID as the frontend
+# (REACT_APP_META_PIXEL_ID), plus a backend-only access token generated in
+# Events Manager > Settings > Conversions API. Both optional: CAPI forwarding
+# silently no-ops without them, same graceful-degradation pattern as Resend.
+META_PIXEL_ID = os.environ.get('META_PIXEL_ID', '')
+META_CONVERSIONS_API_ACCESS_TOKEN = os.environ.get('META_CONVERSIONS_API_ACCESS_TOKEN', '')
 
 # Admin password is a hard-required secret. Refuse to boot without it so that
 # a misconfigured environment never silently falls back to a known default.
@@ -67,6 +76,16 @@ class LeadBase(BaseModel):
     construction_type: Optional[str] = None
     message: Optional[str] = None
     source: str = "website"
+    # Meta Conversions API fields -- all optional, sent by the frontend
+    # (ContactPage/LeadForm/CostCalculatorPage) alongside the lead itself so
+    # the server-side CAPI event can match and dedupe against the browser
+    # Pixel event for the same submission. See send_meta_capi_event below.
+    meta_event_id: Optional[str] = None
+    meta_contact_event_id: Optional[str] = None
+    fbp: Optional[str] = None
+    fbc: Optional[str] = None
+    page_url: Optional[str] = None
+    estimated_value: Optional[float] = None
 
 class Lead(LeadBase):
     model_config = ConfigDict(extra="ignore")
@@ -314,6 +333,95 @@ async def send_lead_notification(lead: Lead):
         logger.error(f"Failed to send email notification: {str(e)}")
         return None
 
+# ==================== META CONVERSIONS API ====================
+# Server-side event delivery -- resilient to ad blockers and iOS 14.5+ ATT
+# opt-outs, since it never depends on the browser Pixel actually firing.
+# Deduplicates against the browser Pixel event for the same action via a
+# shared event_id (see frontend/src/utils/analytics.js's generateEventId).
+
+def _hash_sha256(value: str) -> str:
+    """Per Meta's Advanced Matching spec: lowercase, trimmed, SHA-256 hex."""
+    return hashlib.sha256(value.strip().lower().encode("utf-8")).hexdigest()
+
+
+def _normalize_phone_for_hash(phone: str) -> str:
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    # Decorous's entire service area is India -- a bare 10-digit local number
+    # is assumed to be missing its +91 country code.
+    if len(digits) == 10:
+        digits = "91" + digits
+    return digits
+
+
+async def send_meta_capi_event(
+    event_name: str,
+    event_id: str,
+    lead: Lead,
+    fbp: Optional[str],
+    fbc: Optional[str],
+    client_ip: Optional[str],
+    user_agent: Optional[str],
+    event_source_url: Optional[str] = None,
+    value: Optional[float] = None,
+):
+    if not META_CONVERSIONS_API_ACCESS_TOKEN or not META_PIXEL_ID:
+        return
+
+    user_data = {}
+    if lead.email:
+        user_data["em"] = [_hash_sha256(lead.email)]
+    if lead.phone:
+        user_data["ph"] = [_hash_sha256(_normalize_phone_for_hash(lead.phone))]
+    if lead.name:
+        parts = lead.name.strip().split(maxsplit=1)
+        if parts:
+            user_data["fn"] = [_hash_sha256(parts[0])]
+        if len(parts) > 1:
+            user_data["ln"] = [_hash_sha256(parts[1])]
+    if lead.city:
+        user_data["ct"] = [_hash_sha256(lead.city)]
+    user_data["country"] = [_hash_sha256("in")]
+    if fbp:
+        user_data["fbp"] = fbp
+    if fbc:
+        user_data["fbc"] = fbc
+    if client_ip:
+        user_data["client_ip_address"] = client_ip
+    if user_agent:
+        user_data["client_user_agent"] = user_agent
+
+    custom_data = {"currency": "INR"}
+    if value:
+        custom_data["value"] = value
+    if lead.construction_type:
+        custom_data["content_name"] = lead.construction_type
+    if lead.source:
+        custom_data["content_category"] = lead.source
+
+    payload = {
+        "data": [{
+            "event_name": event_name,
+            "event_time": int(datetime.now(timezone.utc).timestamp()),
+            "event_id": event_id,
+            "action_source": "website",
+            "event_source_url": event_source_url or "https://decorous.in/",
+            "user_data": user_data,
+            "custom_data": custom_data,
+        }]
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as http_client:
+            resp = await http_client.post(
+                f"https://graph.facebook.com/v21.0/{META_PIXEL_ID}/events",
+                params={"access_token": META_CONVERSIONS_API_ACCESS_TOKEN},
+                json=payload,
+            )
+            if resp.status_code >= 400:
+                logger.warning(f"Meta CAPI {event_name} event failed: {resp.status_code} {resp.text}")
+    except Exception as exc:  # noqa: BLE001 -- never let a CAPI hiccup break lead capture
+        logger.warning(f"Meta CAPI {event_name} event error: {exc}")
+
 # ==================== ADMIN AUTH ====================
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
@@ -334,15 +442,33 @@ async def root():
 
 # Lead Routes
 @api_router.post("/leads", response_model=Lead)
-async def create_lead(input: LeadBase):
+async def create_lead(input: LeadBase, request: Request):
     lead = Lead(**input.model_dump())
     doc = lead.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.leads.insert_one(doc)
-    
+
     # Send email notification (non-blocking)
     asyncio.create_task(send_lead_notification(lead))
-    
+
+    # Server-side Meta Conversions API events (non-blocking, no-op without
+    # META_CONVERSIONS_API_ACCESS_TOKEN configured). event_id matches the one
+    # the frontend already sent to fbq() for this same submission so Meta
+    # dedupes rather than double-counting the conversion.
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    if input.meta_event_id:
+        asyncio.create_task(send_meta_capi_event(
+            "Lead", input.meta_event_id, lead, input.fbp, input.fbc,
+            client_ip, user_agent, event_source_url=input.page_url,
+            value=input.estimated_value,
+        ))
+    if input.source == "contact_page" and input.meta_contact_event_id:
+        asyncio.create_task(send_meta_capi_event(
+            "Contact", input.meta_contact_event_id, lead, input.fbp, input.fbc,
+            client_ip, user_agent, event_source_url=input.page_url,
+        ))
+
     return lead
 
 @api_router.get("/leads", response_model=List[Lead])

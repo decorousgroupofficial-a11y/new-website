@@ -9,7 +9,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import Seo from '@/components/Seo';
 import axios from 'axios';
-import { trackCostCalculation, trackLeadSubmission } from '@/utils/analytics';
+import { trackCostCalculation, trackLeadSubmission, generateEventId, getMetaBrowserIds } from '@/utils/analytics';
+import { setMetaAdvancedMatching } from '@/utils/metaAdvancedMatching';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -106,22 +107,38 @@ const CostCalculatorPage = () => {
 
     setIsSubmitting(true);
 
+    const leadEventId = generateEventId();
+    const { fbp, fbc } = getMetaBrowserIds();
+
     try {
+      await setMetaAdvancedMatching({
+        email: leadData.email,
+        phone: leadData.phone,
+        name: leadData.name,
+        city: cities.find(c => c.value === formData.city)?.label,
+      });
+
       await axios.post(`${API}/leads`, {
         ...leadData,
         plot_size: formData.plot_size,
         city: cities.find(c => c.value === formData.city)?.label,
         construction_type: `${formData.quality.charAt(0).toUpperCase() + formData.quality.slice(1)} Construction`,
         source: 'cost_calculator',
-        message: `Estimated Cost: ₹${result?.estimated_cost?.toLocaleString('en-IN')} | Plot: ${formData.plot_size} sqft | Floors: ${formData.floors}`
+        message: `Estimated Cost: ₹${result?.estimated_cost?.toLocaleString('en-IN')} | Plot: ${formData.plot_size} sqft | Floors: ${formData.floors}`,
+        meta_event_id: leadEventId,
+        estimated_value: result?.estimated_cost,
+        fbp,
+        fbc,
+        page_url: window.location.href,
       });
-      
+
       // Track lead conversion from calculator
       trackLeadSubmission({
         source: 'cost_calculator',
         city: cities.find(c => c.value === formData.city)?.label,
         construction_type: `${formData.quality} Construction`,
-        estimated_value: result?.estimated_cost
+        estimated_value: result?.estimated_cost,
+        eventId: leadEventId,
       });
       
       toast.success('Details submitted! Our team will contact you shortly.');

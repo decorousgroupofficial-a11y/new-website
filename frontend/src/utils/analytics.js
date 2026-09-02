@@ -18,10 +18,20 @@ export const trackGA4Event = (eventName, params = {}) => {
   }
 };
 
-// Meta Pixel Events  
-export const trackMetaEvent = (eventName, params = {}) => {
+// Meta Pixel Events
+//
+// eventId is optional and, when passed, is used as fbq's eventID option --
+// this must match the event_id the backend sends for the same action via
+// the Conversions API (see backend/server.py's send_meta_capi_event), which
+// is how Meta deduplicates a browser Pixel event against its server-side
+// twin instead of double-counting the same conversion.
+export const trackMetaEvent = (eventName, params = {}, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', eventName, params);
+    if (eventId) {
+      window.fbq('track', eventName, params, { eventID: eventId });
+    } else {
+      window.fbq('track', eventName, params);
+    }
   }
 };
 
@@ -30,6 +40,30 @@ export const trackEvent = (eventName, params = {}) => {
   trackGA4Event(eventName, params);
   trackMetaEvent(eventName, params);
 };
+
+// A fresh id per conversion action, shared between the browser-side fbq()
+// call and the server-side Conversions API call for the same action so Meta
+// can deduplicate them instead of counting one Lead as two.
+export const generateEventId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+};
+
+function readCookie(name) {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// _fbp/_fbc are set by the Meta Pixel script itself in the visitor's browser
+// -- forwarding them to the backend lets the Conversions API event match to
+// the same person/ad click as the browser Pixel event.
+export const getMetaBrowserIds = () => ({
+  fbp: readCookie('_fbp'),
+  fbc: readCookie('_fbc'),
+});
 
 // Pre-defined conversion events
 export const trackLeadSubmission = (leadData) => {
@@ -41,13 +75,15 @@ export const trackLeadSubmission = (leadData) => {
     city: leadData.city || '',
     construction_type: leadData.construction_type || ''
   });
-  
+
   // Meta Lead Event
   trackMetaEvent('Lead', {
     content_name: leadData.construction_type || 'General Inquiry',
     content_category: leadData.source || 'website',
-    city: leadData.city || ''
-  });
+    city: leadData.city || '',
+    value: leadData.estimated_value || 0,
+    currency: 'INR'
+  }, leadData.eventId);
 };
 
 export const trackCostCalculation = (calculationData) => {
@@ -74,11 +110,13 @@ export const trackContactFormView = () => {
   trackMetaEvent('ViewContent', { content_name: 'Contact Form' });
 };
 
-export const trackServicePageView = (serviceName) => {
+export const trackServicePageView = (serviceName, serviceId) => {
   trackGA4Event('view_service', { service_name: serviceName });
-  trackMetaEvent('ViewContent', { 
+  trackMetaEvent('ViewContent', {
     content_name: serviceName,
-    content_category: 'Services'
+    content_category: 'Services',
+    content_type: 'product',
+    ...(serviceId ? { content_ids: [serviceId] } : {})
   });
 };
 
@@ -102,6 +140,14 @@ export const trackWhatsAppClick = () => {
   trackGA4Event('whatsapp_click', { method: 'whatsapp' });
   trackMetaEvent('Contact', { method: 'whatsapp' });
 };
+
+// No calendar/consultation-booking feature exists on the site today (the
+// "Book a Free Site Visit" CTA links to the contact form, not a scheduler),
+// and there's no newsletter signup or account creation, so Meta's Schedule
+// and CompleteRegistration standard events have nothing real to attach to.
+// Likewise there's no on-site search (the WebSite JSON-LD's SearchAction is
+// schema-only), so Search isn't wired either -- add these once the
+// corresponding feature actually exists.
 
 export const trackProjectView = (projectName, category) => {
   trackGA4Event('view_project', { 

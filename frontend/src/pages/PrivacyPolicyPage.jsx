@@ -45,7 +45,7 @@ const PrivacyPolicyPage = () => {
           <h3>1.2 Information we collect automatically</h3>
           <ul>
             <li>Device type, browser, IP address, referring URL and pages visited (via Google Analytics 4 and Google Ads, managed through Google Tag Manager).</li>
-            <li>Cookies and pixel data for advertising attribution (Meta Pixel).</li>
+            <li>Cookies and pixel data for advertising attribution (Meta Pixel and Meta's Conversions API, used together to measure Facebook/Instagram ad performance).</li>
             <li>Anonymized on-site interaction data such as clicks and page navigation, used to understand and improve site usability (via PostHog).</li>
           </ul>
 

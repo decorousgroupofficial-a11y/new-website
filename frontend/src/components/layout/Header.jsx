@@ -10,6 +10,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
+import { trackPhoneClick } from '@/utils/analytics';
 
 const LOGO_URL = "/logo.png";
 
@@ -46,7 +47,7 @@ const Header = () => {
       <div className="bg-[#1a365d] text-white py-2 hidden md:block">
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex justify-between items-center text-sm">
           <div className="flex items-center gap-6">
-            <a href="tel:7008863329" className="flex items-center gap-2 hover:text-[#F5A623] transition-colors">
+            <a href="tel:7008863329" onClick={trackPhoneClick} className="flex items-center gap-2 hover:text-[#F5A623] transition-colors">
               <Phone size={14} />
               <span>7008863329</span>
             </a>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import LeadForm from '@/components/forms/LeadForm';
 import Seo from '@/components/Seo';
 import axios from 'axios';
-import { trackServicePageView } from '@/utils/analytics';
+import { trackServicePageView, trackPhoneClick } from '@/utils/analytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -32,7 +32,7 @@ const ServiceDetailPage = () => {
 
   useEffect(() => {
     if (service) {
-      trackServicePageView(service.name);
+      trackServicePageView(service.name, service.id);
     }
   }, [service]);
 
@@ -105,7 +105,7 @@ const ServiceDetailPage = () => {
                   <ArrowRight className="ml-2" size={16} />
                 </Button>
               </Link>
-              <a href="tel:7008863329">
+              <a href="tel:7008863329" onClick={trackPhoneClick}>
                 <Button variant="outline" className="border-white text-white hover:bg-white hover:text-[#1a365d] h-12 px-8" data-testid="service-call">
                   Call: 7008863329
                 </Button>

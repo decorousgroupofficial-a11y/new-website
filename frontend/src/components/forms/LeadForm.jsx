@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { trackLeadSubmission } from '@/utils/analytics';
+import { trackLeadSubmission, generateEventId, getMetaBrowserIds } from '@/utils/analytics';
+import { setMetaAdvancedMatching } from '@/utils/metaAdvancedMatching';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -59,17 +60,32 @@ const LeadForm = ({
 
     setIsSubmitting(true);
 
+    const leadEventId = generateEventId();
+    const { fbp, fbc } = getMetaBrowserIds();
+
     try {
+      await setMetaAdvancedMatching({
+        email: formData.email,
+        phone: formData.phone,
+        name: formData.name,
+        city: formData.city,
+      });
+
       await axios.post(`${API}/leads`, {
         ...formData,
-        source
+        source,
+        meta_event_id: leadEventId,
+        fbp,
+        fbc,
+        page_url: window.location.href,
       });
-      
+
       // Track conversion event
       trackLeadSubmission({
         source,
         city: formData.city,
-        construction_type: formData.construction_type
+        construction_type: formData.construction_type,
+        eventId: leadEventId,
       });
       
       toast.success('Thank you! We will contact you shortly.');

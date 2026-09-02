@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import Seo from '@/components/Seo';
 import axios from 'axios';
-import { trackLeadSubmission, trackMetaEvent } from '@/utils/analytics';
+import { trackLeadSubmission, trackMetaEvent, trackPhoneClick, trackWhatsAppClick, generateEventId, getMetaBrowserIds } from '@/utils/analytics';
+import { setMetaAdvancedMatching } from '@/utils/metaAdvancedMatching';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -51,20 +52,40 @@ const ContactPage = () => {
 
     setIsSubmitting(true);
 
+    // Shared with the backend so Meta can dedupe the browser Pixel event
+    // against the server-side Conversions API event for this same
+    // submission instead of counting it twice.
+    const leadEventId = generateEventId();
+    const contactEventId = generateEventId();
+    const { fbp, fbc } = getMetaBrowserIds();
+
     try {
+      await setMetaAdvancedMatching({
+        email: formData.email,
+        phone: formData.phone,
+        name: formData.name,
+        city: formData.city,
+      });
+
       await axios.post(`${API}/leads`, {
         ...formData,
-        source: 'contact_page'
+        source: 'contact_page',
+        meta_event_id: leadEventId,
+        meta_contact_event_id: contactEventId,
+        fbp,
+        fbc,
+        page_url: window.location.href,
       });
 
       // Meta's own taxonomy treats a quote-request submission as both a
       // Contact (the visitor reached out) and a Lead (a qualified prospect
       // captured) — firing both gives Ads more signal to optimize against.
-      trackMetaEvent('Contact', { content_name: 'Contact Form' });
+      trackMetaEvent('Contact', { content_name: 'Contact Form' }, contactEventId);
       trackLeadSubmission({
         source: 'contact_page',
         city: formData.city,
         construction_type: formData.construction_type,
+        eventId: leadEventId,
       });
 
       toast.success('Thank you! We will contact you within 24 hours.');
@@ -112,7 +133,7 @@ const ContactPage = () => {
               <h2 className="text-2xl font-bold text-[#1a365d] mb-6">Get In Touch</h2>
               
               <div className="space-y-6">
-                <a href="tel:+917008863329" className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors" data-testid="contact-phone">
+                <a href="tel:+917008863329" onClick={trackPhoneClick} className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors" data-testid="contact-phone">
                   <div className="w-12 h-12 bg-[#1a365d] text-white rounded-lg flex items-center justify-center flex-shrink-0">
                     <Phone size={20} />
                   </div>
@@ -156,10 +177,11 @@ const ContactPage = () => {
                   </div>
                 </div>
 
-                <a 
+                <a
                   href={`https://wa.me/${whatsappNumber}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={trackWhatsAppClick}
                   className="flex items-center justify-center gap-2 w-full p-4 bg-[#25D366] text-white rounded-xl hover:bg-[#1fad54] transition-colors font-semibold"
                   data-testid="contact-whatsapp"
                 >
