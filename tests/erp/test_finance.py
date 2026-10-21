@@ -295,3 +295,30 @@ def test_owner_worker_payment_is_immediate_but_owner_expense_still_needs_approva
     assert owner.get("/api/erp/workers").json()[0]["paid_cents"] == 3_000_000
     e = make_expense(owner, p["id"], 30_000)
     assert submit(owner, e["id"])["approval_status"] == "PENDING"                         # the rule is payments only
+
+
+def test_owner_can_release_their_own_stuck_payment_but_nothing_else(client):
+    """Payments the Owner recorded before the self-approval rule are PENDING; the Owner can clear them."""
+    import erp_routes
+    from .test_core_existing import make_expense, submit
+    owner = signup(client)
+    pm = add_member(owner, "PM")
+    p = owner.project()
+    v = vendor(owner)
+    # Recreate a legacy state: an Owner payment that was filed as PENDING under the old rules.
+    old_rule = erp_routes.OWNER_DIRECT_TYPES
+    erp_routes.OWNER_DIRECT_TYPES = set()
+    try:
+        stuck = pay(owner, v["id"], 1_000_000).json()
+    finally:
+        erp_routes.OWNER_DIRECT_TYPES = old_rule
+    assert stuck["approval_status"] == "PENDING"
+    assert decide(owner, stuck["id"]).status_code == 200                                   # Owner releases own payment
+    assert owner.get("/api/erp/vendors/balances").json()["vendors"][0]["paid_cents"] == 1_000_000
+
+    # Not a loophole: the Owner still cannot approve their own expense, and a PM can never self-approve a payment.
+    e = make_expense(owner, p["id"], 30_000)
+    submit(owner, e["id"])
+    assert decide(owner, e["id"]).status_code == 403
+    pm_pay = pay(pm, v["id"], 100_000).json()
+    assert decide(pm, pm_pay["id"]).status_code == 403

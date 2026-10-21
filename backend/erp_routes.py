@@ -1269,7 +1269,10 @@ def _decision_gate(a: dict, ctx: AuthCtx) -> Optional[tuple[int, str]]:
     if a["status"] != "PENDING":
         return 400, f"Already {a['status']}"
     if a["requested_by_id"] == ctx.user_id:
-        return 403, "Maker cannot approve own request"
+        # The Owner may release their own payments (see OWNER_DIRECT_TYPES). This clears payments the
+        # Owner recorded before payments became self-approving. Everything else stays maker-checker.
+        if not (ctx.role == "OWNER" and a["target_type"] in OWNER_DIRECT_TYPES):
+            return 403, "Maker cannot approve own request"
     if a["required_role"] != ctx.role and ctx.role != "OWNER":
         return 403, f"Role {ctx.role} cannot decide; need {a['required_role']}"
     return None

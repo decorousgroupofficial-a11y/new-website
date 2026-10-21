@@ -177,7 +177,13 @@ export function useErpData(fn, deps = []) {
       if (alive.current) setLoading(false);
     }
   }, []);
-  useEffect(() => { run(); }, [run, depsKey]);
+  // When a filter / site / tab changes, drop the previous result so the page shows "Loading"
+  // instead of briefly presenting the OLD list as if it were the new one.
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) first.current = false; else setData(null);
+    run();
+  }, [run, depsKey]);
   return { data, loading, error, reload: run, setData };
 }
 
